@@ -1,153 +1,152 @@
-
-var Demo = {
+/**
+  * This module creates a 200x200 pixel canvas for a user to draw
+  * digits. The digits can either be used to train the neural network
+  * or to test the network's current prediction for that digit.
+  *
+  * To simplify computation, the 200x200px canvas is translated as a 20x20px
+  * canvas to be processed as an input array of 1s (white) and 0s (black) on
+  * on the server side. Each new translated pixel's size is 10x10px
+  *
+  * When training the network, traffic to the server can be reduced by batching
+  * requests to train based on BATCH_SIZE.
+  */
+var ocrDemo = {
     CANVAS_WIDTH: 200,
-    REDUCED_WIDTH: 20,
-    BLOCK_WIDTH: 10,
+    TRANSLATED_WIDTH: 20,
+    PIXEL_WIDTH: 10, // TRANSLATED_WIDTH = CANVAS_WIDTH / PIXEL_WIDTH
     BATCH_SIZE: 1,
 
-    // server coordinates:
+    // Server Variables
     PORT: "8000",
     HOST: "http://localhost",
 
-    // colors:
+    // Colors
     BLACK: "#000000",
-    GREEN: "#00ff00",
-    WHITE: "#ffffff",
+    BLUE: "#0000ff",
 
-    trainingArray: [],
+    trainArray: [],
     trainingRequestCount: 0,
 
     onLoadFunction: function() {
         this.resetCanvas();
     },
 
-    resetCanvas: function(){
-        var canvas = document.getElementById('canvasID');
+    resetCanvas: function() {
+        var canvas = document.getElementById('canvas');
         var ctx = canvas.getContext('2d');
 
         this.data = [];
-        ctx.fillStyle  = this.BLACK;
-        ctx.fillRect(0,0, this.CANVAS_WIDTH, this.CANVAS_WIDTH);
+        ctx.fillStyle = this.BLACK;
+        ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_WIDTH);
         var matrixSize = 400;
-        // fill up data with pixel values for the 200 x 200 canvas:
-        while(matrixSize--)
-            this.data.push(0);
-        
-        // draw the grid:
+        while (matrixSize--) this.data.push(0);
         this.drawGrid(ctx);
 
-        // register mouse acitivites we are interested in to capture:
-        this.mouseClicked = false;
-        canvas.onmousedown = function(e) { this.mouseDown(e, ctx, canvas)}.bind(this);
-        canvas.onmousemove = function(e) { this.mouseMove(e, ctx, canvas)}.bind(this);
-        canvas.onmouseup = function(e) { this.mouseUp(e, ctx, canvas)}.bind(this);
+        canvas.onmousemove = function(e) { this.onMouseMove(e, ctx, canvas) }.bind(this);
+        canvas.onmousedown = function(e) { this.onMouseDown(e, ctx, canvas) }.bind(this);
+        canvas.onmouseup = function(e) { this.onMouseUp(e, ctx) }.bind(this);
     },
-    
+
     drawGrid: function(ctx) {
-        for(var x= this.BLOCK_WIDTH, y = this.BLOCK_WIDTH; 
-            x < this.CANVAS_WIDTH; x += this.BLOCK_WIDTH, y += this.BLOCK_WIDTH){
-                ctx.strokeStyle = this.GREEN;
-                // draw one horizontal line and one vertical line of the grid:
-                // first vertical line:
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, this.CANVAS_WIDTH);
-                ctx.stroke();
-                // next horizontal line:
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(this.CANVAS_WIDTH, y);
-                ctx.stroke();
-            }
-    },
+        for (var x = this.PIXEL_WIDTH, y = this.PIXEL_WIDTH; x < this.CANVAS_WIDTH; x += this.PIXEL_WIDTH, y += this.PIXEL_WIDTH) {
+            ctx.strokeStyle = this.BLUE;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.CANVAS_WIDTH);
+            ctx.stroke();
 
-    mouseDown: function(e, ctx, canvas) {
-      //  console.log("Mouse down pressed");
-        //this.mouseClicked = true;
-        canvas.isDrawing = true;
-        this.fillSquare(ctx, e.clientX-canvas.offsetLeft, e.clientY - canvas.offsetTop);
-    },
-
-    mouseMove: function(e, ctx, canvas){
-        if(canvas.isDrawing)
-        {
-           // console.log("Mouse is moving while clicked down!");
-           this.fillSquare(ctx, e.clientX-canvas.offsetLeft, e.clientY - canvas.offsetTop);
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.CANVAS_WIDTH, y);
+            ctx.stroke();
         }
-
     },
 
-    mouseUp: function(e, ctx, canvas){
-        console.log("Mouse is released!");
+    onMouseMove: function(e, ctx, canvas) {
+        if (!canvas.isDrawing) {
+            return;
+        }
+        this.fillSquare(ctx, e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+    },
+
+    onMouseDown: function(e, ctx, canvas) {
+        canvas.isDrawing = true;
+        this.fillSquare(ctx, e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+    },
+
+    onMouseUp: function(e) {
         canvas.isDrawing = false;
     },
 
     fillSquare: function(ctx, x, y) {
-        var xBlockIndex =  Math.floor(x / this.BLOCK_WIDTH);
-        var yBlockIndex = Math.floor(y / this.BLOCK_WIDTH);
-        this.data[((yBlockIndex-1) * this.REDUCED_WIDTH + xBlockIndex) - 1] = 1;
+        var xPixel = Math.floor(x / this.PIXEL_WIDTH);
+        var yPixel = Math.floor(y / this.PIXEL_WIDTH);
+        this.data[((xPixel - 1)  * this.TRANSLATED_WIDTH + yPixel) - 1] = 1;
 
-        ctx.fillStyle = this.WHITE;
-        ctx.fillRect(xBlockIndex*this.BLOCK_WIDTH, yBlockIndex*this.BLOCK_WIDTH, this.BLOCK_WIDTH, this.BLOCK_WIDTH);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(xPixel * this.PIXEL_WIDTH, yPixel * this.PIXEL_WIDTH, this.PIXEL_WIDTH, this.PIXEL_WIDTH);
     },
-    
-    // grabs the digit from text area, as well as the image from canvas and sent it for training
+
     train: function() {
-        var digitValue = document.getElementById("digit").value;
-        //console.log("index of 1 is " + this.data.indexOf(1));
-        if(!digitValue || this.data.indexOf(1) < 0)
-        {
-            alert("Please type a digit in input area, and draw in the draw area. Then press train.");
+        var digitVal = document.getElementById("digit").value;
+        if (!digitVal || this.data.indexOf(1) < 0) {
+            alert("Please type and draw a digit value in order to train the network");
             return;
         }
-        
-        // now send the training bach to the server
-        this.trainingArray.push({"image":this.data, "label": parseInt(digitValue)});
-        this.trainingRequestCount += 1;
+        this.trainArray.push({"y0": this.data, "label": parseInt(digitVal)});
+        this.trainingRequestCount++;
 
-        // because our batchsize is 1, I won't check for it, and just send the data to server for training
-        console.log("Sending " + this.trainingRequestCount + " training data to server");
-        var jsonData = {
-            trainArray: this.trainingArray,
-            train: true
-        };
-        this.sendData(jsonData);
-        this.trainingRequestCount = 0;
-        this.trainingArray = [];
+        // Time to send a training batch to the server.
+        if (this.trainingRequestCount == this.BATCH_SIZE) {
+          //  alert("Sending training data to server...");
+            var json = {
+                trainArray: this.trainArray,
+                train: true
+            };
+
+            this.sendData(json);
+            this.trainingRequestCount = 0;
+            this.trainArray = [];
+        }
     },
 
     test: function() {
-        // leave it to students to check for error here: main error is not drawing anything
-        var jsonData = {
-            data : this.data,
-            predict : true
+        if (this.data.indexOf(1) < 0) {
+            alert("Please draw a digit in order to test the network");
+            return;
+        }
+        var json = {
+            image: this.data,
+            predict: true
         };
-        
-        this.sendData(jsonData);
+        this.sendData(json);
+    },
+
+    receiveResponse: function(xmlHttp) {
+        if (xmlHttp.status != 200) {
+            alert("Server returned status " + xmlHttp.status);
+                    return;
+        }
+        var responseJSON = JSON.parse(xmlHttp.responseText);
+        if (xmlHttp.responseText && responseJSON.type == "test") {
+          //  alert("The neural network predicts you wrote a \'" + responseJSON.result + '\'');
+            document.getElementById("digit").value = responseJSON.result;
+
+        }
+    },
+
+    onError: function(e) {
+        alert("Error occurred while connecting to server: " + e.target.statusText);
     },
 
     sendData: function(json) {
-        var xmlHttpReq = new XMLHttpRequest();
-        xmlHttpReq.open('POST', this.HOST + ":" + this.PORT, false);
-        xmlHttpReq.onload = function() { this.receiveResponse(xmlHttpReq)}.bind(this);
-        xmlHttpReq.onerror = function() { this.onError(xmlHttpReq)}.bind(this);
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.open('POST', this.HOST + ":" + this.PORT, false);
+        xmlHttp.onload = function() { this.receiveResponse(xmlHttp); }.bind(this);
+        xmlHttp.onerror = function() { this.onError(xmlHttp) }.bind(this);
         var msg = JSON.stringify(json);
-        xmlHttpReq.send(msg);
-    },
-
-    onError : function(e) {
-        alert("Error while connecting to server: " + e.target.statusText);
-    },
-
-    receiveResponse : function(e) {
-        if(e.status != 200 ) {
-            alert("Server returned status " + e.status);
-            return;
-        }
-        // take care of response for the 'test' case.
-        var responseJSON = JSON.parse(e.responseText);
-        if(e.responseText && responseJSON.type == "test") {
-            alert("The NN predictions is \'" + responseJSON.result + "\'");
-        }
-    }    
+        //xmlHttp.setRequestHeader('Content-length', msg.length);
+      //  xmlHttp.setRequestHeader("Connection", "close");
+        xmlHttp.send(msg);
+    }
 }

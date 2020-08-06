@@ -1,24 +1,19 @@
-<!--
-    This app creates a 200x200 pixel drawing area (canvas) for user to draw
-    a digit. This digit can be used for both training a ANN system, or to test
-    the system.
-    For simplification and reducing the number of inputs to the system, the image in the canvas is split into 10x10 pixel blocks. This means, it has 20x20 =400 blocks. Each block is either white (1), or black (0).
--->
+
 <html>
 <head>
-    <script src="recognizer.js"></script>
-    <!--<link rel="stylesheet" type="text/css" href="style.css"> -->
+	<script src="recognizer.js"></script>
+<!-- <link rel="stylesheet" type="text/css" href="ocr.css"> -->	 
 </head>
-<body onload="Demo.onLoadFunction()">
-    <div id="main-container" style="text-align:center;">
-        <h1>Optical Digit Recognizer</h1>
-        <canvas id="canvasID" width="200" height="200" style="border:1px solid #000000"></canvas>
-        <form name="input">
-            <p>Digit: <input id="digit" type="text"></p>
-            <input  type="button" value="Train" onclick="Demo.train()">
-            <input type="button" value="Test" onclick="Demo.test()">
-            <input type="button" value="Reset" onclick="Demo.resetCanvas()">
-        </form>
-    </div>
+<body onload="ocrDemo.onLoadFunction()">
+	<div id="main-container" style="text-align: center;">
+		<h1>OCR Demo</h1>
+		<canvas id="canvas" width="200" height="200"></canvas>
+		<form name="input">
+			<p>Digit: <input id="digit" type="text"> </p>
+			<input type="button" value="Train" onclick="ocrDemo.train()">
+			<input type="button" value="Test" onclick="ocrDemo.test()">
+			<input type="button" value="Reset" onclick="ocrDemo.resetCanvas();"/>
+		</form> 
+	</div>
 </body>
 </html>
